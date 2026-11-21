@@ -1,0 +1,15 @@
+# generated-by: AI, model claude-sonnet-5-5
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/

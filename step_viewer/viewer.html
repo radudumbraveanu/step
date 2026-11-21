@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<!-- generated-by: AI, model claude-sonnet-5-5 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Step viewer</title>
+<style>
+  body { font: 15px/1.5 system-ui, sans-serif; margin: 0; display: flex; height: 100vh; }
+  nav { width: 240px; border-right: 1px solid #ddd; padding: 12px; overflow: auto; background: #fafafa; }
+  nav ol { padding-left: 20px; margin: 0; }
+  nav li { cursor: pointer; padding: 3px 0; }
+  nav li.on { font-weight: bold; color: #0a58ca; }
+  main { flex: 1; padding: 16px 28px; overflow: auto; }
+  #head { color: #666; font-size: 13px; }
+  .bar { display: flex; gap: 8px; margin: 8px 0 16px; }
+  button { padding: 4px 12px; cursor: pointer; }
+  pre { background: #f4f4f4; padding: 10px; overflow: auto; }
+  table { border-collapse: collapse; } td, th { border: 1px solid #ccc; padding: 4px 8px; }
+  textarea { width: 100%; height: 60vh; font: 13px/1.4 monospace; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+<nav><b>File</b><select id="src" style="width:100%;margin:4px 0 12px"></select><b>Steps</b><ol id="list"></ol></nav>
+<main>
+  <div id="head"></div>
+  <div class="bar">
+    <button id="prev">&larr; Prev</button><button id="next">Next &rarr;</button>
+    <button id="edit">Edit</button>
+  </div>
+  <div id="body"></div>
+</main>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: false });
+
+const $ = s => document.querySelector(s);
+const esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const strip = t => t.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, ''); // drop generated-by front matter
+const hp = new URLSearchParams(location.hash.slice(1));
+let steps = [], sig = '', cur = +hp.get('i') || 0, src = hp.get('src') || '', tree = '', editing = false;
+const base = n => n.split('/').pop();
+
+async function get(f) {
+  const r = await fetch('/files/' + encodeURI(f), { cache: 'no-store' });
+  return r.ok ? r.text() : null;
+}
+
+// Two models, picked from the list on the left:
+//   "folder/"   -> each file in the folder is a step (order and titles from its index.md if present, else by name)
+//   a file      -> .md: each "## " section is a step (text before the first "## " is step 1); other types: one step
+async function load() {
+  const t = await (await fetch('/tree', { cache: 'no-store' })).text();
+  const files = t.split('\n').filter(Boolean);
+  if (src.includes('/') && base(src) === 'index.md') src = src.slice(0, -'index.md'.length); // old links: index.md = its folder
+  if (t !== tree && !editing) {
+    tree = t;
+    const dirs = [...new Set(files.filter(f => f.includes('/')).map(f => f.slice(0, f.lastIndexOf('/') + 1)))];
+    if (!src) src = dirs.find(d => files.includes(d + 'index.md')) || files[0] || '';
+    const opt = (v, label) => `<option value="${esc(v)}"${v === src ? ' selected' : ''}>${esc(label)}</option>`;
+    $('#src').innerHTML = dirs.map(d => opt(d, d + '  [folder: each file = step]')).join('')
+      + files.filter(f => !f.includes('/') && base(f) !== 'index.md').map(f => opt(f, f + (f.endsWith('.md') ? '  [## = steps]' : ''))).join('');
+  }
+  let s;
+  if (src.endsWith('/')) {
+    const idx = files.includes(src + 'index.md') ? await get(src + 'index.md') : null;
+    const links = idx === null ? [] : [...strip(idx).matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)];
+    const list = idx === null
+      ? files.filter(f => f.startsWith(src) && !f.slice(src.length).includes('/')).map(f => ({ title: base(f), file: f }))
+      : links.map(m => ({ title: m[1], file: decodeURIComponent(new URL(m[2], 'http://h/' + encodeURI(src)).pathname.slice(1)) }));
+    s = await Promise.all(list.map(async x => ({ ...x, text: (await get(x.file)) ?? '*missing file*' })));
+    if (!s.length) s = [{ title: 'Empty folder', file: '', text: 'No files in this folder.' }];
+  } else {
+    const txt = src ? await get(src) : null;
+    if (txt === null) s = [{ title: 'No file', file: '', text: 'Pick a file or folder in the list on the left.' }];
+    else if (src.endsWith('.md')) // single .md file: each "## " section is a step; text before the first "## " is step 1
+      s = strip(txt).split(/^(?=## )/m).filter(x => x.trim())
+        .map(x => ({ title: (x.match(/^#{1,2} (.*)/) || [, 'Intro'])[1], file: src, text: x, section: true }));
+    else s = [{ title: base(src), file: src, text: txt }];
+  }
+  const n = JSON.stringify(s);
+  if (n !== sig && !editing) { sig = n; steps = s; cur = Math.max(0, Math.min(cur, steps.length - 1)); render(); }
+}
+
+function pick(f) { src = f; cur = 0; sig = ''; location.hash = `src=${encodeURIComponent(f)}&i=0`; load(); }
+
+async function render() {
+  const s = steps[cur];
+  if (!s) return;
+  $('#list').innerHTML = steps.map((x, i) => `<li class="${i === cur ? 'on' : ''}" data-i="${i}">${esc(x.title)}</li>`).join('');
+  $('#head').textContent = `${cur + 1}/${steps.length} · ${s.file}`;
+  $('#edit').style.display = s.file ? '' : 'none';
+  const py = s.file.endsWith('.py');
+  const md = s.file.endsWith('.md') || !s.file;
+  $('#body').innerHTML = md
+    ? marked.parse(strip(s.text))
+    : `<pre><code>${esc(s.text)}</code></pre>` + (py ? '<button id="run">Run</button><pre id="out"></pre>' : '');
+  if (py) $('#run').onclick = async () => {
+    $('#out').textContent = 'running...';
+    $('#out').textContent = await (await fetch('/run?file=' + encodeURIComponent(s.file))).text();
+  };
+  const nodes = [];
+  document.querySelectorAll('#body pre code.language-mermaid').forEach(c => {
+    const d = document.createElement('div');
+    d.className = 'mermaid'; d.textContent = c.textContent;
+    c.parentElement.replaceWith(d); nodes.push(d);
+  });
+  if (nodes.length) mermaid.run({ nodes });
+}
+
+function go(i) {
+  if (editing) return;
+  cur = Math.max(0, Math.min(i, steps.length - 1));
+  location.hash = `src=${encodeURIComponent(src)}&i=${cur}`; render();
+}
+
+$('#src').onchange = e => pick(e.target.value);
+$('#prev').onclick = () => go(cur - 1);
+$('#next').onclick = () => go(cur + 1);
+$('#list').onclick = e => e.target.dataset.i && go(+e.target.dataset.i);
+document.onkeydown = e => {
+  if (editing) return;
+  if (e.key === 'ArrowLeft') go(cur - 1);
+  if (e.key === 'ArrowRight') go(cur + 1);
+};
+
+$('#edit').onclick = () => {
+  const s = steps[cur];
+  editing = true;
+  $('#body').innerHTML = `<textarea id="ta"></textarea><div class="bar"><button id="save">Save</button><button id="cancel">Cancel</button></div>`;
+  $('#ta').value = s.text;
+  $('#cancel').onclick = () => { editing = false; render(); };
+  $('#save').onclick = async () => {
+    let body = $('#ta').value;
+    if (s.section) { // step is one "## " section: splice it back into the full file
+      const full = await get(s.file), at = full === null ? -1 : full.indexOf(s.text);
+      if (at < 0) return alert('File changed on disk. Cancel and reload before editing.');
+      body = full.slice(0, at) + body + full.slice(at + s.text.length);
+    }
+    const r = await fetch('/files/' + encodeURI(s.file), { method: 'PUT', body });
+    if (!r.ok) return alert(await r.text());
+    editing = false; sig = ''; load();
+  };
+};
+
+load();
+setInterval(load, 2000);
+</script>
+</body>
+</html>
