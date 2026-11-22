@@ -10,6 +10,7 @@ generated-by: AI, model claude-sonnet-5-5
 2. `step_viewer/viewer.html`: index and single-file section parsing, front matter stripping, Mermaid, poll, edit.
 3. `install.py`: local, per-user install of the `step` command (no pip).
 4. This proposal as the first test content, plus `06-demo.py`.
+5. `tests/test_server.py`: stdlib `unittest`, no dependencies. Covers `new_note` (creates a file or folder, never overwrites) and the server guards (foreign `Host` gets 403, path traversal gets 404, `PUT` only overwrites existing files). Run from the repo root: `python -m unittest discover -s tests -t .`
 
 ## Use
 
@@ -32,6 +33,6 @@ See `README.md` for the commands and `05-usage.md` for the viewer.
 
 ## Not checked
 
-- `viewer.html` was never opened in a browser. Rendering, Mermaid, polling and the Edit button are untested. Only `server.py` was tested, with curl: install into a venv, `step -n` file and `-d` folder creation, `/tree`, `/files`, Host check (403), `-d` without `-n` (error). The browser start (`webbrowser.open`) and Windows were not tested.
+- `viewer.html` was never opened in a browser. Rendering, Mermaid, polling and the Edit button are untested. Only `server.py` was tested, with curl and the unit tests in `tests/` (the `/run` endpoint, `/tree` and the CLI argument parsing have no unit tests): install into a venv, `step -n` file and `-d` folder creation, `/tree`, `/files`, Host check (403), `-d` without `-n` (error). The browser start (`webbrowser.open`) and Windows were not tested.
 - `step` collides with the KDE `step` package (physics simulator) and the smallstep CLI `step` if either is installed.
 - Behaviour with very large files or many steps.
