@@ -73,10 +73,12 @@ async function load() {
   } else {
     const txt = src ? await get(src) : null;
     if (txt === null) s = [{ title: 'No file', file: '', text: 'Pick a file or folder in the list on the left.' }];
-    else if (src.endsWith('.md')) // single .md file: each "## " section is a step; text before the first "## " is step 1
+    else if (src.endsWith('.md')) { // single .md file: each "## " section is a step; text before the first "## " is step 1
       s = strip(txt).split(/^(?=## )/m).filter(x => x.trim())
         .map(x => ({ title: (x.match(/^#{1,2} (.*)/) || [, 'Intro'])[1], file: src, text: x, section: true }));
-    else s = [{ title: base(src), file: src, text: txt }];
+      // empty file (or front matter only): one empty step so it can be edited; save appends to the file
+      if (!s.length) s = [{ title: '(empty)', file: src, text: '', section: true, empty: true }];
+    } else s = [{ title: base(src), file: src, text: txt }];
   }
   const n = JSON.stringify(s);
   if (n !== sig && !editing) { sig = n; steps = s; cur = Math.max(0, Math.min(cur, steps.length - 1)); render(); }
@@ -133,7 +135,7 @@ $('#edit').onclick = () => {
   $('#save').onclick = async () => {
     let body = $('#ta').value;
     if (s.section) { // step is one "## " section: splice it back into the full file
-      const full = await get(s.file), at = full === null ? -1 : full.indexOf(s.text);
+      const full = await get(s.file), at = full === null ? -1 : s.empty ? full.length : full.indexOf(s.text);
       if (at < 0) return alert('File changed on disk. Cancel and reload before editing.');
       body = full.slice(0, at) + body + full.slice(at + s.text.length);
     }
