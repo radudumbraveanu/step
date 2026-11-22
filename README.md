@@ -8,6 +8,21 @@ generated-by: AI, model claude-sonnet-5-5
 
 View a file, or a folder of files, one step at a time like a wizard. Discuss each step with Claude in the terminal; changes are saved back to the real files.
 
+## Why steps
+
+The idea of this app comes from a few well-known principles of teaching and learning: teach in small pieces, sized so the learner can absorb them, going from simple to complex. `step` is a tool to apply them to your own notes, lessons and ideas.
+
+| Principle | In `step` |
+|---|---|
+| [Cognitive load](https://en.wikipedia.org/wiki/Cognitive_load): working memory is small, too much at once means nothing is retained | One step on screen at a time. Tables, diagrams and short examples instead of long prose. |
+| [Chunking](https://en.wikipedia.org/wiki/Chunking_%28psychology%29): split material into small units | One `## ` section, or one file in a folder, is one step. |
+| [Progressive disclosure](https://en.wikipedia.org/wiki/Progressive_disclosure): show only what is needed now, the rest on request | Prev/Next and the step list. Later steps stay out of sight until you reach them. |
+| [Zone of proximal development](https://en.wikipedia.org/wiki/Zone_of_proximal_development): not too easy, not too hard | You set the pace. Stay on a step, go back, or ask Claude to explain it differently. |
+| [Instructional scaffolding](https://en.wikipedia.org/wiki/Instructional_scaffolding): support while learning, then less | Claude in the terminal answers about the current step (quote its header). Ask for less help as you get comfortable. |
+| [Programmed instruction](https://en.wikipedia.org/wiki/Programmed_instruction): small steps with immediate feedback | An edit shows in the viewer within 2 seconds. The Run button on a `.py` step runs the code at once. |
+
+Order the steps from simple to complex: each step should use only what earlier steps introduced.
+
 ## Install
 
 Requires Python 3.9+ and internet access (the page loads `marked` and Mermaid from a CDN). Linux and Windows.
